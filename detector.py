@@ -1,3 +1,4 @@
+from locale import normalize
 import tensorflow as tf
 import numpy as np
 from PIL import Image
@@ -45,5 +46,21 @@ class AIImageDetector:
             return None
     
     def detect_ai_image(self, image_path):
-        pass
+        preprocessed_img = self.preprocess_image(image_path)
         
+        if processed_img is None:
+            return None
+        
+        #Extract features using our model
+        features = self.model.predict(preprocessed_img)
+        
+        #Analyse feature patterns
+        feature_std = np.std(features)      #Calculate standard deviation of features
+        
+        #Calculate confidence score
+        #Lower feature variation → Higher confidence it's AI-generated
+        #Higher feature variation → Lower confidence it's AI-generated
+        normalized_std = (feature_std ) / 100.0
+        confidence = 1.0 - min(normalized_std , 1.0)
+        
+        return confidence
