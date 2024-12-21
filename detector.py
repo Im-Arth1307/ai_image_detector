@@ -64,3 +64,26 @@ class AIImageDetector:
         confidence = 1.0 - min(normalized_std , 1.0)
         
         return confidence
+    
+def main():
+        # Create test_images directory if it doesn't exist
+    if not os.path.exists('test_images'):
+        os.makedirs('test_images')
+        print("Created 'test_images' directory. Please add some test images.")            
+        return
+    
+    detector = AIImageDetector()
+        
+        # Process all images in the test_images directory
+    for image_file in os.listdir('test_images'):
+        if image_file.lower().endswith(('.png', '.jpg', '.jpeg')):
+            image_path = os.path.join('test_images', image_file)
+            result = detector.detect_ai_image(image_path)
+                
+            if result:
+                print(f"\nResults for {image_file}:")
+                print(f"AI Generated: {'Yes' if result['is_ai_generated'] else 'No'}")
+                print(f"Confidence: {result['confidence']:.2%}")
+    
+if __name__ == "__main__":
+    main()
