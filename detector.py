@@ -65,25 +65,102 @@ class AIImageDetector:
         
         return confidence
     
+def validate_model(detector, test_dir):
+    #validate model performance
+    results = {
+        'true_positives': 0,   #AI images correctly
+        'true_negatives': 0,   #Real images correctly
+        'false_positives': 0,   #AI images incorrectly
+        'false_negatives': 0,   #Real images incorrectly
+    }
+
+    #Testing images
+    ai_dir = os.path.join(validation_dir, 'ai_generated')
+    if os.path.exists(ai_dir):
+        print("\nTesting AI images:\n")
+        for img in os.listdir(ai_dir):
+            if img.lower().endswith(('.png', '.jpg', '.jpeg')):
+                result = self.detect_ai_image(os.path.join(ai_dir, img))
+                
+                if result:
+                    is_correct = result['is_ai_generated']
+                    print(f"{img}: {'✓' if is_correct else '✗'} (Confidence: {result['confidence']:.2%})")
+                    if is_correct:
+                        results['true_positives'] += 1
+                    else:
+                        results['false_negatives'] += 1
+                else:
+                    results['false_positives'] += 1
+    
+    #Testing real images
+    real_dir = os.path.join(validation_dir, 'real')
+    if os.path.exists(real_dir):
+        print("\nTesting real images:\n")
+        for img in os.listdir(real_dir):
+            if img.lower().endswith(('.png', '.jpg', '.jpeg')):
+                result = self.detect_ai_image(os.path.join(real_dir, img))
+                
+                if result:
+                    is_correct = not result['is_ai_generated']
+                    print(f"{img}: {'✓' if is_correct else '✗'} (Confidence: {result['confidence']:.2%})")
+                    if is_correct:
+                        results['true_negatives'] += 1
+                    else:
+                        results['false_positives'] += 1
+                else:
+                    results['false_negatives'] += 1
+    
+    #Calculate accuracy metrics
+    total = sum(results.values())
+    if total > 0:
+        accuracy = (results['true_positives'] + results['true_negatives']) / total
+        precision = results['true_positives'] / (results['true_positives'] + results['false_positives']) if (results['true_positives'] + results['false_positives']) > 0 else 0
+        recall = results['true_positives'] / (results['true_positives'] + results['false_negatives']) if (results['true_positives'] + results['false_negatives']) > 0 else 0
+        f1_score = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+        
+        print("\nValidation Results:")
+        print(f"Accuracy: {accuracy:.2%}")
+        print(f"Precision: {precision:.2%}")
+        print(f"Recall: {recall:.2%}")
+        print(f"F1 Score: {f1_score:.2%}")
+        print("\nDetailed Results:")
+        print(f"✓ True Positives (AI images correctly identified): {results['true_positives']}")
+        print(f"✗ False Positives (Real images marked as AI): {results['false_positives']}")
+        print(f"✓ True Negatives (Real images correctly identified): {results['true_negatives']}")
+        print(f"✗ False Negatives (AI images marked as real): {results['false_negatives']}")
+    
+    return {
+        'metrics': {
+            'accuracy': accuracy,
+            'precision': precision,
+            'recall': recall,
+            'f1_score': f1_score
+        },
+        'results': results
+    }
+    
+
 def main():
-        # Create test_images directory if it doesn't exist
-    if not os.path.exists('test_images'):
-        os.makedirs('test_images')
-        print("Created 'test_images' directory. Please add some test images.")            
-        return
+    # Create test directories if they don't exist
+    test_dirs = ['test/ai_generated', 'test/real']
+    for dir_path in test_dirs:
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
+            print(f"Created directory: {dir_path}")
     
     detector = AIImageDetector()
-        
-        # Process all images in the test_images directory
-    for image_file in os.listdir('test_images'):
-        if image_file.lower().endswith(('.png', '.jpg', '.jpeg')):
-            image_path = os.path.join('test_images', image_file)
-            result = detector.detect_ai_image(image_path)
-                
-            if result:
-                print(f"\nResults for {image_file}:")
-                print(f"AI Generated: {'Yes' if result['is_ai_generated'] else 'No'}")
-                print(f"Confidence: {result['confidence']:.2%}")
     
+    # Check if directories are empty
+    if not any(os.listdir(os.path.join('test', d)) for d in ['ai_generated', 'real']):
+        print("\nPlease add test images to the following directories:")
+        print("- test/ai_generated/: Add AI-generated images here")
+        print("- test/real/: Add real photographs here")
+        return
+    
+    print("\nStarting AI Image Detection validation...")
+    # Call the standalone validate_model function
+    validate_model(detector, 'test')
+
 if __name__ == "__main__":
     main()
+    
