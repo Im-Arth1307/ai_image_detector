@@ -75,7 +75,7 @@ def validate_model(detector, test_dir):
     }
 
     #Testing images
-    ai_dir = os.path.join(validation_dir, 'ai_generated')
+    ai_dir = os.path.join(test_dir, 'ai_generated')
     if os.path.exists(ai_dir):
         print("\nTesting AI images:\n")
         for img in os.listdir(ai_dir):
@@ -93,7 +93,7 @@ def validate_model(detector, test_dir):
                     results['false_positives'] += 1
     
     #Testing real images
-    real_dir = os.path.join(validation_dir, 'real')
+    real_dir = os.path.join(test_dir, 'real')
     if os.path.exists(real_dir):
         print("\nTesting real images:\n")
         for img in os.listdir(real_dir):
