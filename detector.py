@@ -46,25 +46,54 @@ class AIImageDetector:
             return None
     
     def detect_ai_image(self, image_path):
-        preprocessed_img = self.preprocess_image(image_path)
-        
-        if processed_img is None:
+        try:
+            preprocessed_img = self.preprocess_image(image_path)
+            
+            if preprocessed_img is None:
+                return None
+            
+            #Extract features using our model
+            features = self.model.predict(preprocessed_img, verbose = 0)
+            
+            #Analyse feature patterns
+            feature_std = np.std(features)      #Calculate standard deviation of features
+            feature_mean = np.mean(features)
+            feature_max = np.max(features)
+            feature_entropy = np.sum(-features * np.log2(features + 1e-10))
+            
+            
+            #Calculate confidence score
+            #Lower feature variation → Higher confidence it's AI-generated
+            #Higher feature variation → Lower confidence it's AI-generated
+            normalized_std = np.clip((feature_std) / 3.0, 0, 1)  
+            normalized_mean = np.clip(abs(np.mean(features)) / 0.75, 0, 1)  
+            normalized_max = np.clip(feature_max / 1.5, 0, 1)  
+            normalized_entropy = np.clip(feature_entropy / 150.0, 0, 1)  
+            
+            # Calculate weighted confidence score with non-linear transformations
+            confidence = (
+                (1.0 - np.power(normalized_std, 0.5)) * 0.2 +  
+                (1.0 - np.power(normalized_mean, 0.5)) * 0.2 +  
+                (1.0 - normalized_max) * 0.3 +  
+                (1.0 - np.power(normalized_entropy, 0.75)) * 0.3  
+            ) * 100
+            
+            threshold = 0.5
+            
+            return {
+                'is_ai_generated': confidence > 50,
+                'confidence': confidence,
+                'metrics': {
+                    'feature_std': feature_std,
+                    'feature_mean': feature_mean,
+                    'feature_max': feature_max,
+                    'feature_entropy': feature_entropy    
+                }
+                
+            }
+        except Exception as e:
+            print(f"Error processing {os.path.basename(image_path)}: {str(e)}")
             return None
-        
-        #Extract features using our model
-        features = self.model.predict(preprocessed_img)
-        
-        #Analyse feature patterns
-        feature_std = np.std(features)      #Calculate standard deviation of features
-        
-        #Calculate confidence score
-        #Lower feature variation → Higher confidence it's AI-generated
-        #Higher feature variation → Lower confidence it's AI-generated
-        normalized_std = (feature_std ) / 100.0
-        confidence = 1.0 - min(normalized_std , 1.0)
-        
-        return confidence
-    
 def validate_model(detector, test_dir):
     #validate model performance
     results = {
@@ -80,11 +109,11 @@ def validate_model(detector, test_dir):
         print("\nTesting AI images:\n")
         for img in os.listdir(ai_dir):
             if img.lower().endswith(('.png', '.jpg', '.jpeg')):
-                result = self.detect_ai_image(os.path.join(ai_dir, img))
+                result = detector.detect_ai_image(os.path.join(ai_dir, img))
                 
                 if result:
                     is_correct = result['is_ai_generated']
-                    print(f"{img}: {'✓' if is_correct else '✗'} (Confidence: {result['confidence']:.2%})")
+                    print(f"{img}: {'[PASS]' if is_correct else '[FAIL]'} (Confidence: {result['confidence']:.2f}%)")
                     if is_correct:
                         results['true_positives'] += 1
                     else:
@@ -98,11 +127,11 @@ def validate_model(detector, test_dir):
         print("\nTesting real images:\n")
         for img in os.listdir(real_dir):
             if img.lower().endswith(('.png', '.jpg', '.jpeg')):
-                result = self.detect_ai_image(os.path.join(real_dir, img))
+                result = detector.detect_ai_image(os.path.join(real_dir, img))
                 
                 if result:
                     is_correct = not result['is_ai_generated']
-                    print(f"{img}: {'✓' if is_correct else '✗'} (Confidence: {result['confidence']:.2%})")
+                    print(f"{img}: {'[PASS]' if is_correct else '[FAIL]'} (Confidence: {result['confidence']:.2f}%)")
                     if is_correct:
                         results['true_negatives'] += 1
                     else:
@@ -124,10 +153,10 @@ def validate_model(detector, test_dir):
         print(f"Recall: {recall:.2%}")
         print(f"F1 Score: {f1_score:.2%}")
         print("\nDetailed Results:")
-        print(f"✓ True Positives (AI images correctly identified): {results['true_positives']}")
-        print(f"✗ False Positives (Real images marked as AI): {results['false_positives']}")
-        print(f"✓ True Negatives (Real images correctly identified): {results['true_negatives']}")
-        print(f"✗ False Negatives (AI images marked as real): {results['false_negatives']}")
+        print(f"[+] True Positives (AI images correctly identified): {results['true_positives']}")
+        print(f"[-] False Positives (Real images incorrectly flagged): {results['false_positives']}")
+        print(f"[+] True Negatives (Real images correctly identified): {results['true_negatives']}")
+        print(f"[-] False Negatives (AI images missed): {results['false_negatives']}")
     
     return {
         'metrics': {
